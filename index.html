@@ -4,7 +4,8 @@
 <head>
     <title>PVP Colorful Game of Life</title>
     <style>
-        body, html {
+        body,
+        html {
             margin: 0;
             padding: 0;
             height: 100%;
@@ -74,19 +75,19 @@
             </div>
             <div class="control-group">
                 <label>Rows:</label>
-                <input type="number" id="rows" value="30">
+                <input type="number" id="rows" value="20">
             </div>
             <div class="control-group">
                 <label>Columns:</label>
-                <input type="number" id="cols" value="30">
+                <input type="number" id="cols" value="20">
             </div>
             <div class="control-group">
                 <label>Color Limit:</label>
-                <input type="number" id="colorLimit" value="50">
+                <input type="number" id="colorLimit" value="20">
             </div>
             <div class="control-group">
                 <label>Step Delay (ms):</label>
-                <input type="number" id="stepDelay" value="100">
+                <input type="number" id="stepDelay" value="1000">
             </div>
             <button onclick="initGrid()">Reset Grid</button>
             <button onclick="startStop()">Start/Stop</button>
@@ -214,14 +215,15 @@
 
         function getNeighbors(i, j) {
             const neighbors = [];
+            const rows = grid.length;
+            const cols = grid[0].length;
+
             for (let di = -1; di <= 1; di++) {
                 for (let dj = -1; dj <= 1; dj++) {
                     if (di === 0 && dj === 0) continue;
-                    const ni = i + di;
-                    const nj = j + dj;
-                    if (ni >= 0 && ni < grid.length && nj >= 0 && nj < grid[0].length) {
-                        neighbors.push(grid[ni][nj]);
-                    }
+                    const ni = (i + di + rows) % rows; // Wrap around rows
+                    const nj = (j + dj + cols) % cols; // Wrap around columns
+                    neighbors.push(grid[ni][nj]);
                 }
             }
             return neighbors;
