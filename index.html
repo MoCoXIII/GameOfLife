@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <title>PVP Colorful Game of Life</title>
     <style>
@@ -9,14 +8,14 @@
             gap: 20px;
             padding: 20px;
         }
-
+        
         #grid {
             display: grid;
             gap: 1px;
             background: #333;
             padding: 1px;
         }
-
+        
         .cell {
             width: 20px;
             height: 20px;
@@ -24,29 +23,59 @@
             border: 1px solid #ddd;
             cursor: pointer;
         }
-
+        
         .controls {
             display: flex;
             flex-direction: column;
             gap: 10px;
+            min-width: 200px;
         }
-
+        
         .color-picker {
             width: 50px;
             height: 50px;
         }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .color-count-item {
+            padding: 4px;
+            margin: 2px 0;
+            border-radius: 3px;
+            display: inline-block;
+        }
     </style>
 </head>
-
 <body>
     <div class="container">
         <div class="controls">
-            <input type="color" class="color-picker" value="#ff0000">
-            <input type="number" id="rows" placeholder="Rows" value="30">
-            <input type="number" id="cols" placeholder="Columns" value="30">
-            <input type="number" id="colorLimit" placeholder="Color limit" value="50">
+            <div class="control-group">
+                <label>Draw Color:</label>
+                <input type="color" class="color-picker" value="#ff0000">
+            </div>
+            <div class="control-group">
+                <label>Rows:</label>
+                <input type="number" id="rows" value="30">
+            </div>
+            <div class="control-group">
+                <label>Columns:</label>
+                <input type="number" id="cols" value="30">
+            </div>
+            <div class="control-group">
+                <label>Color Limit:</label>
+                <input type="number" id="colorLimit" value="50">
+            </div>
+            <div class="control-group">
+                <label>Step Delay (ms):</label>
+                <input type="number" id="stepDelay" value="100">
+            </div>
             <button onclick="initGrid()">Reset Grid</button>
             <button onclick="startStop()">Start/Stop</button>
+            <button onclick="updateColorCounts()">Count Current Cells</button>
             <div id="colorCounts"></div>
         </div>
         <div id="grid"></div>
@@ -58,8 +87,9 @@
         let colorCounts = {};
         let selectedColor = '#ff0000';
         let colorLimit = 50;
+        let stepDelay = 100;
 
-        document.querySelector('.color-picker').addEventListener('input', function (e) {
+        document.querySelector('.color-picker').addEventListener('input', function(e) {
             selectedColor = e.target.value;
         });
 
@@ -67,22 +97,20 @@
             const rows = parseInt(document.getElementById('rows').value);
             const cols = parseInt(document.getElementById('cols').value);
             colorLimit = parseInt(document.getElementById('colorLimit').value);
+            stepDelay = parseInt(document.getElementById('stepDelay').value);
             colorCounts = {};
-
-            // Clear grid
+            
             const gridElement = document.getElementById('grid');
             gridElement.style.gridTemplateColumns = `repeat(${cols}, 20px)`;
             gridElement.innerHTML = '';
-
-            // Initialize grid array
-            grid = Array(rows).fill().map(() =>
+            
+            grid = Array(rows).fill().map(() => 
                 Array(cols).fill().map(() => ({
                     alive: false,
                     color: null
                 }))
             );
 
-            // Create cells
             for (let i = 0; i < rows; i++) {
                 for (let j = 0; j < cols; j++) {
                     const cell = document.createElement('div');
@@ -93,16 +121,16 @@
             }
         }
 
-        function placeCell(i, j) {
-            if (!running && (colorCounts[selectedColor] || 0) < colorLimit) {
-                grid[i][j].alive = true;
-                grid[i][j].color = selectedColor;
-                colorCounts[selectedColor] = (colorCounts[selectedColor] || 0) + 1;
-                updateDisplay();
-            }
+    function placeCell(i, j) {
+        if (!running && (colorCounts[selectedColor] || 0) < colorLimit) {
+            grid[i][j].alive = true;
+            grid[i][j].color = selectedColor;
+            colorCounts[selectedColor] = (colorCounts[selectedColor] || 0) + 1;
+            updateDisplay();
         }
+    }
 
-        function updateDisplay() {
+    function updateDisplay() {
             const cells = document.getElementsByClassName('cell');
             let idx = 0;
             for (let row of grid) {
@@ -114,84 +142,105 @@
             updateColorCounts();
         }
 
+        function getTextColor(bgColor) {
+            const hex = bgColor.replace('#', '');
+            const r = parseInt(hex.substring(0,2), 16);
+            const g = parseInt(hex.substring(2,4), 16);
+            const b = parseInt(hex.substring(4,6), 16);
+            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            return luminance > 0.5 ? 'black' : 'white';
+        }
+
         function updateColorCounts() {
-            let counts = "Color counts:<br>";
-            for (let color in colorCounts) {
-                counts += `<div style="background:${color}; padding:2px">${color}: ${colorCounts[color]}</div>`;
+            const counts = {};
+            grid.forEach(row => row.forEach(cell => {
+                if (cell.alive && cell.color) {
+                    counts[cell.color] = (counts[cell.color] || 0) + 1;
+                }
+            }));
+            
+            let countsHTML = "Cell Counts:<br>";
+            for (let color in counts) {
+                const textColor = getTextColor(color);
+                countsHTML += `
+                    <div class="color-count-item" style="background:${color};color:${textColor}">
+                        ${color}: ${counts[color]}
+                    </div>
+                `;
             }
-            document.getElementById('colorCounts').innerHTML = counts;
+            document.getElementById('colorCounts').innerHTML = countsHTML;
         }
 
         function getNextGeneration() {
-            const newGrid = grid.map(row => row.map(cell => ({ ...cell })));
+                const newGrid = grid.map(row => row.map(cell => ({ ...cell })));
 
-            for (let i = 0; i < grid.length; i++) {
-                for (let j = 0; j < grid[i].length; j++) {
-                    const neighbors = getNeighbors(i, j);
-                    const liveNeighbors = neighbors.filter(n => n.alive).length;
+                for (let i = 0; i < grid.length; i++) {
+                    for (let j = 0; j < grid[i].length; j++) {
+                        const neighbors = getNeighbors(i, j);
+                        const liveNeighbors = neighbors.filter(n => n.alive).length;
 
-                    if (grid[i][j].alive) {
-                        newGrid[i][j].alive = liveNeighbors === 2 || liveNeighbors === 3;
-                    } else {
-                        if (liveNeighbors === 3) {
-                            newGrid[i][j].alive = true;
-                            newGrid[i][j].color = calculateNewColor(neighbors);
+                        if (grid[i][j].alive) {
+                            newGrid[i][j].alive = liveNeighbors === 2 || liveNeighbors === 3;
+                        } else {
+                            if (liveNeighbors === 3) {
+                                newGrid[i][j].alive = true;
+                                newGrid[i][j].color = calculateNewColor(neighbors);
+                            }
                         }
                     }
                 }
+                return newGrid;
             }
-            return newGrid;
-        }
 
         function getNeighbors(i, j) {
-            const neighbors = [];
-            for (let di = -1; di <= 1; di++) {
-                for (let dj = -1; dj <= 1; dj++) {
-                    if (di === 0 && dj === 0) continue;
-                    const ni = i + di;
-                    const nj = j + dj;
-                    if (ni >= 0 && ni < grid.length && nj >= 0 && nj < grid[0].length) {
-                        neighbors.push(grid[ni][nj]);
+                const neighbors = [];
+                for (let di = -1; di <= 1; di++) {
+                    for (let dj = -1; dj <= 1; dj++) {
+                        if (di === 0 && dj === 0) continue;
+                        const ni = i + di;
+                        const nj = j + dj;
+                        if (ni >= 0 && ni < grid.length && nj >= 0 && nj < grid[0].length) {
+                            neighbors.push(grid[ni][nj]);
+                        }
                     }
                 }
+                return neighbors;
             }
-            return neighbors;
-        }
 
-        function calculateNewColor(neighbors) {
-            const colorFreq = {};
-            const aliveNeighbors = neighbors.filter(n => n.alive);
+            function calculateNewColor(neighbors) {
+                    const colorFreq = {};
+                    const aliveNeighbors = neighbors.filter(n => n.alive);
 
-            aliveNeighbors.forEach(n => {
-                colorFreq[n.color] = (colorFreq[n.color] || 0) + 1;
-            });
+                    aliveNeighbors.forEach(n => {
+                        colorFreq[n.color] = (colorFreq[n.color] || 0) + 1;
+                    });
 
-            const maxCount = Math.max(...Object.values(colorFreq));
-            const topColors = Object.keys(colorFreq).filter(c => colorFreq[c] === maxCount);
+                    const maxCount = Math.max(...Object.values(colorFreq));
+                    const topColors = Object.keys(colorFreq).filter(c => colorFreq[c] === maxCount);
 
-            if (topColors.length === 1) return topColors[0];
+                    if (topColors.length === 1) return topColors[0];
 
-            // Average colors
-            let r = 0, g = 0, b = 0;
-            topColors.forEach(color => {
-                const hex = color.replace('#', '');
-                r += parseInt(hex.substring(0, 2), 16);
-                g += parseInt(hex.substring(2, 4), 16);
-                b += parseInt(hex.substring(4, 6), 16);
-            });
+                    // Average colors
+                    let r = 0, g = 0, b = 0;
+                    topColors.forEach(color => {
+                        const hex = color.replace('#', '');
+                        r += parseInt(hex.substring(0, 2), 16);
+                        g += parseInt(hex.substring(2, 4), 16);
+                        b += parseInt(hex.substring(4, 6), 16);
+                    });
 
-            r = Math.round(r / topColors.length).toString(16).padStart(2, '0');
-            g = Math.round(g / topColors.length).toString(16).padStart(2, '0');
-            b = Math.round(b / topColors.length).toString(16).padStart(2, '0');
+                    r = Math.round(r / topColors.length).toString(16).padStart(2, '0');
+                    g = Math.round(g / topColors.length).toString(16).padStart(2, '0');
+                    b = Math.round(b / topColors.length).toString(16).padStart(2, '0');
 
-            return `#${r}${g}${b}`;
-        }
-
+                    return `#${r}${g}${b}`;
+                }
+                
         function gameLoop() {
             if (running) {
                 grid = getNextGeneration();
                 updateDisplay();
-                requestAnimationFrame(gameLoop);
+                setTimeout(() => gameLoop(), stepDelay);
             }
         }
 
@@ -203,5 +252,4 @@
         initGrid();
     </script>
 </body>
-
 </html>
