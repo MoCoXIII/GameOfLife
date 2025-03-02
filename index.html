@@ -35,7 +35,7 @@
 
         .cell {
             background: white;
-            border: 1px solid #555;
+            border: 1px solid #ddd;
             cursor: pointer;
         }
 
@@ -61,7 +61,12 @@
             padding: 4px;
             margin: 2px 0;
             border-radius: 3px;
-            display: inline-block;
+            display: block;
+            /* Stack vertically */
+            width: 100%;
+            /* Take full width */
+            box-sizing: border-box;
+            /* Include padding in width */
         }
     </style>
 </head>
@@ -90,7 +95,7 @@
                 <input type="number" id="stepDelay" value="1000">
             </div>
             <button onclick="initGrid()">Reset Grid</button>
-            <button onclick="startStop()">Start/Stop</button>
+            <button onclick="startStop()">Start</button>
             <button onclick="updateColorCounts()">Count Current Cells</button>
             <div id="colorCounts"></div>
         </div>
@@ -144,9 +149,14 @@
 
         function placeCell(i, j) {
             if (!running && (colorCounts[selectedColor] || 0) < colorLimit) {
-                grid[i][j].alive = true;
-                grid[i][j].color = selectedColor;
-                colorCounts[selectedColor] = (colorCounts[selectedColor] || 0) + 1;
+                if (selectedColor === '#ffffff') { // Treat white as "no color"
+                    grid[i][j].alive = false;
+                    grid[i][j].color = null;
+                } else {
+                    grid[i][j].alive = true;
+                    grid[i][j].color = selectedColor;
+                    colorCounts[selectedColor] = (colorCounts[selectedColor] || 0) + 1;
+                }
                 updateDisplay();
             }
         }
@@ -231,7 +241,9 @@
 
         function calculateNewColor(neighbors) {
             const colorFreq = {};
-            const aliveNeighbors = neighbors.filter(n => n.alive);
+            const aliveNeighbors = neighbors.filter(n => n.alive && n.color !== '#ffffff'); // Ignore white
+
+            if (aliveNeighbors.length === 0) return '#ffffff'; // Default to white if no valid neighbors
 
             aliveNeighbors.forEach(n => {
                 colorFreq[n.color] = (colorFreq[n.color] || 0) + 1;
@@ -268,6 +280,7 @@
 
         function startStop() {
             running = !running;
+            document.querySelector('button[onclick="startStop()"]').innerText = running ? 'Stop' : 'Start';
             stepDelay = parseInt(document.getElementById('stepDelay').value);
             if (running) gameLoop();
         }
