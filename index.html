@@ -190,15 +190,18 @@
                 }
             }));
 
+            // Convert counts object to an array and sort by count (descending)
+            const sortedCounts = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
             let countsHTML = "Cell Counts:<br>";
-            for (let color in counts) {
+            sortedCounts.forEach(([color, count]) => {
                 const textColor = getTextColor(color);
                 countsHTML += `
                     <div class="color-count-item" style="background:${color};color:${textColor}">
-                        ${color}: ${counts[color]}
+                        ${color}: ${count}
                     </div>
                 `;
-            }
+            });
             document.getElementById('colorCounts').innerHTML = countsHTML;
         }
 
