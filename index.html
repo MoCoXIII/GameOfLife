@@ -10,6 +10,7 @@
             padding: 0;
             height: 100%;
             overflow: hidden;
+            box-sizing: border-box;
         }
 
         .container {
@@ -17,33 +18,50 @@
             gap: 20px;
             padding: 20px;
             height: 100%;
+            width: 100%;
             box-sizing: border-box;
         }
 
         #grid {
             display: grid;
             gap: 0px;
-            background: #333;
-            padding: 1px;
-            width: 80vh;
-            /* Default to 80% of viewport height */
-            height: 80vh;
-            max-width: 80vw;
-            /* Limit to 80% of viewport width */
-            max-height: 80vw;
+            /* Gap between cells */
+            padding: 0px;
+            /* Padding inside the grid */
+            /* background: #333; */
+            width: 80%;
+            /* Grid takes 75% of the width */
+            height: 100%;
+            /* Full height */
+            box-sizing: border-box;
+            /* Include padding in width/height calculations */
         }
 
         .cell {
+            width: 10px;
+            height: 10px;
+            box-sizing: border-box;
+            cursor: crosshair;
             background: white;
-            border: 1px solid #ddd;
+            border: 1px solid #333;
             cursor: pointer;
+            user-select: none;
+            /* Prevent text selection */
+            -webkit-user-select: none;
+            /* For Safari */
+            -moz-user-select: none;
+            /* For Firefox */
+            -ms-user-select: none;
+            /* For IE/Edge */
         }
 
         .controls {
+            width: 20%;
+            height: 100%;
             display: flex;
             flex-direction: column;
             gap: 10px;
-            min-width: 200px;
+            box-sizing: border-box;
         }
 
         .color-picker {
@@ -57,6 +75,15 @@
             gap: 5px;
         }
 
+        #colorCounts {
+            overflow-y: auto;
+            /* Enable vertical scrolling */
+            border: 1px solid #ccc;
+            /* Optional: Add a border for visual clarity */
+            padding: 10px;
+            /* Optional: Add padding for better spacing */
+        }
+
         .color-count-item {
             padding: 4px;
             margin: 2px 0;
@@ -67,6 +94,11 @@
             /* Take full width */
             box-sizing: border-box;
             /* Include padding in width */
+        }
+
+        .color-count-item.selected {
+            border: 2px solid #000;
+            /* Highlight selected item */
         }
     </style>
 </head>
@@ -96,7 +128,7 @@
             </div>
             <button onclick="initGrid()">Reset Grid</button>
             <button onclick="startStop()">Start</button>
-            <button onclick="updateColorCounts()">Count Current Cells</button>
+            <!-- <button onclick="updateColorCounts()">Count Current Cells</button> -->
             <div id="colorCounts"></div>
         </div>
         <div id="grid"></div>
@@ -109,6 +141,21 @@
         let selectedColor = '#ff0000';
         let colorLimit = 50;
         let stepDelay = 100;
+        let isMouseDown = false;
+        let deleteMode = false;
+
+        // Prevent default scrolling behavior
+        document.addEventListener('wheel', (e) => {
+            if (!e.target.closest('#colorCounts')) {
+                e.preventDefault(); // Prevent scrolling outside the colorCounts div
+            }
+        }, { passive: false });
+
+        document.addEventListener('touchmove', (e) => {
+            if (!e.target.closest('#colorCounts')) {
+                e.preventDefault(); // Prevent scrolling outside the colorCounts div
+            }
+        }, { passive: false });
 
         document.querySelector('.color-picker').addEventListener('input', function (e) {
             selectedColor = e.target.value;
@@ -141,14 +188,41 @@
                 for (let j = 0; j < cols; j++) {
                     const cell = document.createElement('div');
                     cell.className = 'cell';
-                    cell.addEventListener('click', () => placeCell(i, j));
+                    cell.draggable = false;
+
+                    cell.addEventListener('mousedown', () => {
+                        isMouseDown = true;
+                        if (grid[i][j].alive) {
+                            deleteMode = true;
+                            removeCell(i, j);
+                        } else {
+                            placeCell(i, j);
+                        }
+                    });
+                    cell.addEventListener('mousemove', () => {
+                        if (isMouseDown) {
+                            if (deleteMode) {
+                                removeCell(i, j);
+                            } else {
+                                placeCell(i, j);
+                            }
+                        }
+                    });
+                    cell.addEventListener('mouseup', () => {
+                        isMouseDown = false;
+                        deleteMode = false;
+                    });
+
                     gridElement.appendChild(cell);
                 }
             }
+            updateColorCounts();
+            resize();
         }
 
         function placeCell(i, j) {
-            if (!running && (colorCounts[selectedColor] || 0) < colorLimit) {
+            colorLimit = parseInt(document.getElementById('colorLimit').value);
+            if (!running && (colorCounts[selectedColor] || 0) < colorLimit && grid[i][j].color !== selectedColor) {
                 if (selectedColor === '#ffffff') { // Treat white as "no color"
                     grid[i][j].alive = false;
                     grid[i][j].color = null;
@@ -159,6 +233,12 @@
                 }
                 updateDisplay();
             }
+        }
+
+        function removeCell(i, j) {
+            grid[i][j].alive = false;
+            grid[i][j].color = null;
+            updateDisplay();
         }
 
         function updateDisplay() {
@@ -187,6 +267,7 @@
             grid.forEach(row => row.forEach(cell => {
                 if (cell.alive && cell.color) {
                     counts[cell.color] = (counts[cell.color] || 0) + 1;
+                    colorCounts[cell.color] = counts[cell.color];
                 }
             }));
 
@@ -197,12 +278,26 @@
             sortedCounts.forEach(([color, count]) => {
                 const textColor = getTextColor(color);
                 countsHTML += `
-                    <div class="color-count-item" style="background:${color};color:${textColor}">
+                    <div class="color-count-item" style="background:${color};color:${textColor}" data-color="${color}">
                         ${color}: ${count}
                     </div>
                 `;
             });
             document.getElementById('colorCounts').innerHTML = countsHTML;
+
+            const colorCountItems = document.querySelectorAll('.color-count-item');
+            colorCountItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    const color = item.getAttribute('data-color');
+                    selectedColor = color;
+                    document.querySelector('.color-picker').value = color;
+
+                    // Remove 'selected' class from all items
+                    colorCountItems.forEach(i => i.classList.remove('selected'));
+                    // Add 'selected' class to the clicked item
+                    item.classList.add('selected');
+                });
+            });
         }
 
         function getNextGeneration() {
@@ -288,8 +383,30 @@
             if (running) gameLoop();
         }
 
-        window.addEventListener('resize', initGrid);
+        function resize() {
+            const gridElement = document.getElementById('grid');
+            gridElement.style.width = `80%`;
 
+            const cells = document.getElementsByClassName('cell');
+            const rows = grid[0].length + 1;
+            const cols = grid.length + 1;
+            const cellSize = Math.min(
+                gridElement.clientWidth / rows,
+                gridElement.clientHeight / cols
+            );
+
+            console.log(gridElement.clientWidth, rows, cols, cellSize);
+
+            gridElement.style.gridTemplateColumns = `repeat(${rows - 1}, ${cellSize}px)`;
+            gridElement.style.gridTemplateRows = `repeat(${cols}, ${cellSize}px)`;
+
+            Array.from(cells).forEach(cell => {
+                cell.style.width = `${cellSize}px`;
+                cell.style.height = `${cellSize}px`;
+            });
+        }
+
+        window.addEventListener('resize', resize);
         initGrid();
     </script>
 </body>
