@@ -222,6 +222,7 @@
 
         function placeCell(i, j) {
             colorLimit = parseInt(document.getElementById('colorLimit').value);
+            
             if (!running && (colorCounts[selectedColor] || 0) < colorLimit && grid[i][j].color !== selectedColor) {
                 if (selectedColor === '#ffffff') { // Treat white as "no color"
                     grid[i][j].alive = false;
@@ -309,7 +310,13 @@
                     const liveNeighbors = neighbors.filter(n => n.alive).length;
 
                     if (grid[i][j].alive) {
-                        newGrid[i][j].alive = liveNeighbors === 2 || liveNeighbors === 3;
+                        let survives = liveNeighbors === 2 || liveNeighbors === 3;
+                        if (survives) {
+                            newGrid[i][j].alive = true;
+                        } else {
+                            newGrid[i][j].alive = false;
+                            newGrid[i][j].color = null;
+                        }
                     } else {
                         if (liveNeighbors === 3) {
                             newGrid[i][j].alive = true;
@@ -395,10 +402,8 @@
                 gridElement.clientHeight / cols
             );
 
-            console.log(gridElement.clientWidth, rows, cols, cellSize);
-
             gridElement.style.gridTemplateColumns = `repeat(${rows - 1}, ${cellSize}px)`;
-            gridElement.style.gridTemplateRows = `repeat(${cols}, ${cellSize}px)`;
+            gridElement.style.gridTemplateRows = `repeat(${cols - 1}, ${cellSize}px)`;
 
             Array.from(cells).forEach(cell => {
                 cell.style.width = `${cellSize}px`;
