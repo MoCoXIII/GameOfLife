@@ -491,7 +491,7 @@
                 })))
             };
             localStorage.setItem('gameOfLifeSettings', JSON.stringify(settings));
-            alert('Settings saved!');
+            // alert('Settings saved!');
         }
 
         function loadSettings() {
@@ -509,9 +509,9 @@
                     });
                 });
                 updateDisplay();
-                alert('Settings loaded!');
+                // alert('Settings loaded!');
             } else {
-                alert('No saved settings found.');
+                // alert('No saved settings found.');
             }
         }
 
@@ -534,7 +534,7 @@
             a.download = 'game_of_life_settings.json';
             a.click();
             URL.revokeObjectURL(url);
-            alert('Settings exported!');
+            // alert('Settings exported!');
         }
 
         function importFromJson(event) {
@@ -554,7 +554,7 @@
                         });
                     });
                     updateDisplay();
-                    alert('Settings imported!');
+                    // alert('Settings imported!');
                 };
                 reader.readAsText(file);
             }
@@ -586,7 +586,7 @@
                             }
                         }
                         updateDisplay();
-                        alert('Image imported and mapped!');
+                        // alert('Image imported and mapped!');
                     };
                 };
                 reader.readAsDataURL(file);
