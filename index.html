@@ -64,20 +64,6 @@
             /* Use flexbox for horizontal alignment */
             gap: 10px;
             /* Add spacing between buttons */
-            flex-wrap: wrap;
-            /* Allow wrapping if buttons overflow */
-        }
-
-        .controls button,
-        .controls label {
-            display: inline-block;
-            /* Place buttons and labels inline */
-            margin-right: 10px;
-            /* Add spacing between buttons */
-            padding: 5px 10px;
-            /* Add padding for better appearance */
-            cursor: pointer;
-            /* Show pointer cursor on hover */
         }
 
         .color-picker {
@@ -144,13 +130,19 @@
             </div>
             <button onclick="initGrid()">Reset Grid</button>
             <button onclick="startStop()">Start</button>
-            <button onclick="saveSettings()">Save Settings</button>
-            <button onclick="loadSettings()">Load Settings</button>
+            <div class="control-group" style="display: inline-flex; flex-direction: row; width: 100%; gap: 0px;">
+                <button onclick="saveSettings()" style="float: left; width: 50%;">Save Settings</button>
+                <button onclick="loadSettings()" style="float: right; width: 50%;">Load Settings</button>
+            </div>
             <button onclick="exportToJson()">Export to JSON</button>
-            <input type="file" id="importJson" accept=".json" onchange="importFromJson(event)" style="display: none;">
-            <label for="importJson">Import from JSON</label>
-            <input type="file" id="importImage" accept="image/*" onchange="importImage(event)" style="display: none;">
-            <label for="importImage">Import Image</label>
+            <div class="control-group" style="display: inline-flex; flex-direction: row; width: 100%;">
+                <input type="file" id="importJson" accept=".json" onchange="importFromJson(event)"
+                    style="display: none;">
+                <label for="importJson" style="position: absolute; left: 0; padding-left: 10px;">Import from JSON</label>
+                <input type="file" id="importImage" accept="image/*" onchange="importImage(event)"
+                    style="display: none;">
+                <label for="importImage" style="position: absolute; right: 0; padding-right: 10px;">Import Image</label>
+            </div>
             <!-- <button onclick="updateColorCounts()">Count Current Cells</button> -->
             <div id="colorCounts"></div>
         </div>
@@ -220,7 +212,7 @@
         }
 
         function handleCellStart(i, j, event) {
-            event.preventDefault(); // Prevent default touch behavior (e.g., scrolling)
+            // event.preventDefault(); // Prevent default touch behavior (e.g., scrolling)
             isMouseDown = true;
 
             // Set deleteMode if the interaction starts on a live cell
@@ -235,7 +227,7 @@
 
         function handleCellMove(i, j, event) {
             if (isMouseDown) {
-                event.preventDefault(); // Prevent default touch behavior (e.g., scrolling)
+                // event.preventDefault(); // Prevent default touch behavior (e.g., scrolling)
                 if (deleteMode) {
                     removeCell(i, j); // Erase during drag
                 } else {
