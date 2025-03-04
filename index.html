@@ -407,14 +407,47 @@
 
         function resize() {
             const gridElement = document.getElementById('grid');
+            const controlsElement = document.getElementsByClassName('controls')[0];
+            const colorCountsElement = document.getElementById('colorCounts');
+
             const cells = document.getElementsByClassName('cell');
             const rows = grid[0].length;
             const cols = grid.length;
-            
-            gridElement.style.width = `80%`;
+
+            if (window.innerWidth > window.innerHeight) {
+                // Landscape mode: Grid to the right of controls
+                gridElement.style.width = `calc(100% - ${controlsElement.offsetLeft + controlsElement.offsetWidth}px)`;
+                gridElement.style.height = '100%';
+                controlsElement.style.width = '20%';
+                controlsElement.style.height = '100%';
+                controlsElement.style.position = 'fixed'; // Fix controls to the left
+                controlsElement.style.left = '0';
+                controlsElement.style.top = '0';
+                gridElement.style.position = 'fixed'; // Fix grid to the right
+                gridElement.style.left = controlsElement.clientWidth + 'px';
+                gridElement.style.top = '0';
+                colorCountsElement.style.maxHeight = 'none'; // Reset max-height
+            } else {
+                // Portrait mode: Grid below controls
+                gridElement.style.width = '100%';
+                gridElement.style.height = '60%'; // Grid takes 60% of the height
+                controlsElement.style.width = '100%';
+                controlsElement.style.height = '40%'; // Controls take 40% of the height
+                controlsElement.style.position = 'fixed'; // Fix controls at the top
+                controlsElement.style.left = '0';
+                controlsElement.style.top = '0';
+                gridElement.style.position = 'fixed'; // Fix grid below controls
+                gridElement.style.left = '0';
+                gridElement.style.top = controlsElement.clientHeight + 'px';
+                colorCountsElement.style.maxHeight = '15%'; // Set max-height to 15% of viewport height
+            }
+
+            const cellSpaceWidth = gridElement.clientWidth;
+            const cellSpaceHeight = gridElement.clientHeight;
+
             const cellSize = Math.min(
-                gridElement.clientWidth / (rows + 1),
-                gridElement.clientHeight / (cols + 1)
+                cellSpaceWidth / (rows),
+                cellSpaceHeight / (cols)
             );
 
             gridElement.style.gridTemplateColumns = `repeat(${rows}, ${cellSize}px)`;
