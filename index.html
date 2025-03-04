@@ -138,7 +138,8 @@
             <div class="control-group" style="display: inline-flex; flex-direction: row; width: 100%;">
                 <input type="file" id="importJson" accept=".json" onchange="importFromJson(event)"
                     style="display: none;">
-                <label for="importJson" style="position: absolute; left: 0; padding-left: 10px;">Import from JSON</label>
+                <label for="importJson" style="position: absolute; left: 0; padding-left: 10px;">Import from
+                    JSON</label>
                 <input type="file" id="importImage" accept="image/*" onchange="importImage(event)"
                     style="display: none;">
                 <label for="importImage" style="position: absolute; right: 0; padding-right: 10px;">Import Image</label>
@@ -288,8 +289,12 @@
             const counts = {};
             grid.forEach(row => row.forEach(cell => {
                 if (cell.alive && cell.color) {
-                    counts[cell.color] = (counts[cell.color] || 0) + 1;
-                    colorCounts[cell.color] = counts[cell.color];
+                    if (cell.color === '#ffffff') {
+                        cell.color = null;
+                    } else {
+                        counts[cell.color] = (counts[cell.color] || 0) + 1;
+                        colorCounts[cell.color] = counts[cell.color];
+                    }
                 }
             }));
 
@@ -478,6 +483,8 @@
             const settings = {
                 rows: grid.length,
                 cols: grid[0].length,
+                colorLimit: parseInt(document.getElementById('colorLimit').value),
+                stepDelay: parseInt(document.getElementById('stepDelay').value),
                 cells: grid.map(row => row.map(cell => ({
                     alive: cell.alive,
                     color: cell.color
@@ -491,7 +498,11 @@
             const savedSettings = localStorage.getItem('gameOfLifeSettings');
             if (savedSettings) {
                 const settings = JSON.parse(savedSettings);
-                initGrid(settings.rows, settings.cols); // Reinitialize the grid
+                document.getElementById('rows').value = settings.rows;
+                document.getElementById('cols').value = settings.cols;
+                document.getElementById('colorLimit').value = settings.colorLimit;
+                document.getElementById('stepDelay').value = settings.stepDelay;
+                initGrid(); // Reinitialize the grid
                 settings.cells.forEach((row, i) => {
                     row.forEach((cell, j) => {
                         grid[i][j] = { ...cell }; // Restore cell states
@@ -508,6 +519,8 @@
             const settings = {
                 rows: grid.length,
                 cols: grid[0].length,
+                colorLimit: parseInt(document.getElementById('colorLimit').value),
+                stepDelay: parseInt(document.getElementById('stepDelay').value),
                 cells: grid.map(row => row.map(cell => ({
                     alive: cell.alive,
                     color: cell.color
@@ -530,7 +543,11 @@
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const settings = JSON.parse(e.target.result);
-                    initGrid(settings.rows, settings.cols); // Reinitialize the grid
+                    document.getElementById('rows').value = settings.rows;
+                    document.getElementById('cols').value = settings.cols;
+                    document.getElementById('colorLimit').value = settings.colorLimit;
+                    document.getElementById('stepDelay').value = settings.stepDelay;
+                    initGrid(); // Reinitialize the grid
                     settings.cells.forEach((row, i) => {
                         row.forEach((cell, j) => {
                             grid[i][j] = { ...cell }; // Restore cell states
@@ -561,7 +578,9 @@
                         for (let i = 0; i < grid.length; i++) {
                             for (let j = 0; j < grid[0].length; j++) {
                                 const pixelData = ctx.getImageData(j, i, 1, 1).data;
-                                const color = `rgb(${pixelData[0]}, ${pixelData[1]}, ${pixelData[2]})`;
+                                const [r, g, b, a] = pixelData;
+                                if (a === 0) continue;
+                                const color = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
                                 grid[i][j].alive = true;
                                 grid[i][j].color = color;
                             }
