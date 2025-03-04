@@ -9,7 +9,7 @@
             margin: 0;
             padding: 0;
             height: 100%;
-            overflow: hidden;
+            overflow: auto;
             box-sizing: border-box;
         }
 
@@ -144,19 +144,6 @@
         let isMouseDown = false;
         let deleteMode = false;
 
-        // Prevent default scrolling behavior
-        document.addEventListener('wheel', (e) => {
-            if (!e.target.closest('#colorCounts')) {
-                e.preventDefault(); // Prevent scrolling outside the colorCounts div
-            }
-        }, { passive: false });
-
-        document.addEventListener('touchmove', (e) => {
-            if (!e.target.closest('#colorCounts')) {
-                e.preventDefault(); // Prevent scrolling outside the colorCounts div
-            }
-        }, { passive: false });
-
         document.querySelector('.color-picker').addEventListener('input', function (e) {
             selectedColor = e.target.value;
         });
@@ -167,6 +154,7 @@
             colorLimit = parseInt(document.getElementById('colorLimit').value);
             stepDelay = parseInt(document.getElementById('stepDelay').value);
             colorCounts = {};
+            running = false;
 
             const gridElement = document.getElementById('grid');
             gridElement.innerHTML = '';
@@ -190,39 +178,57 @@
                     cell.className = 'cell';
                     cell.draggable = false;
 
-                    cell.addEventListener('mousedown', () => {
-                        isMouseDown = true;
-                        if (grid[i][j].alive) {
-                            deleteMode = true;
-                            removeCell(i, j);
-                        } else {
-                            placeCell(i, j);
-                        }
-                    });
-                    cell.addEventListener('mousemove', () => {
-                        if (isMouseDown) {
-                            if (deleteMode) {
-                                removeCell(i, j);
-                            } else {
-                                placeCell(i, j);
-                            }
-                        }
-                    });
-                    cell.addEventListener('mouseup', () => {
-                        isMouseDown = false;
-                        deleteMode = false;
-                    });
+                    // Mouse events
+                    cell.addEventListener('mousedown', (event) => handleCellStart(i, j, event));
+                    cell.addEventListener('mousemove', (event) => handleCellMove(i, j, event));
+                    cell.addEventListener('mouseup', () => handleCellEnd());
+
+                    // Touch events
+                    cell.addEventListener('touchstart', (event) => handleCellStart(i, j, event));
+                    cell.addEventListener('touchmove', (event) => handleCellMove(i, j, event));
+                    cell.addEventListener('touchend', () => handleCellEnd());
 
                     gridElement.appendChild(cell);
                 }
             }
+
             updateColorCounts();
             resize();
         }
 
+        function handleCellStart(i, j, event) {
+            event.preventDefault(); // Prevent default touch behavior (e.g., scrolling)
+            isMouseDown = true;
+
+            // Set deleteMode if the interaction starts on a live cell
+            deleteMode = grid[i][j].alive;
+
+            if (deleteMode) {
+                removeCell(i, j); // Erase the cell
+            } else {
+                placeCell(i, j); // Draw on the cell
+            }
+        }
+
+        function handleCellMove(i, j, event) {
+            if (isMouseDown) {
+                event.preventDefault(); // Prevent default touch behavior (e.g., scrolling)
+                if (deleteMode) {
+                    removeCell(i, j); // Erase during drag
+                } else {
+                    placeCell(i, j); // Draw during drag
+                }
+            }
+        }
+
+        function handleCellEnd() {
+            isMouseDown = false;
+            deleteMode = false;
+        }
+
         function placeCell(i, j) {
             colorLimit = parseInt(document.getElementById('colorLimit').value);
-            
+
             if (!running && (colorCounts[selectedColor] || 0) < colorLimit && grid[i][j].color !== selectedColor) {
                 if (selectedColor === '#ffffff') { // Treat white as "no color"
                     grid[i][j].alive = false;
@@ -299,6 +305,13 @@
                     item.classList.add('selected');
                 });
             });
+
+            if (colorCountItems.length === 0) {
+                running = false;
+                document.getElementById('colorCounts').style.display = 'none';
+            } else {
+                document.getElementById('colorCounts').style.display = 'block';
+            }
         }
 
         function getNextGeneration() {
@@ -380,6 +393,8 @@
                 grid = getNextGeneration();
                 updateDisplay();
                 setTimeout(() => gameLoop(), stepDelay);
+            } else {
+                document.querySelector('button[onclick="startStop()"]').innerText = 'Start';
             }
         }
 
@@ -392,18 +407,18 @@
 
         function resize() {
             const gridElement = document.getElementById('grid');
-            gridElement.style.width = `80%`;
-
             const cells = document.getElementsByClassName('cell');
-            const rows = grid[0].length + 1;
-            const cols = grid.length + 1;
+            const rows = grid[0].length;
+            const cols = grid.length;
+            
+            gridElement.style.width = `80%`;
             const cellSize = Math.min(
-                gridElement.clientWidth / rows,
-                gridElement.clientHeight / cols
+                gridElement.clientWidth / (rows + 1),
+                gridElement.clientHeight / (cols + 1)
             );
 
-            gridElement.style.gridTemplateColumns = `repeat(${rows - 1}, ${cellSize}px)`;
-            gridElement.style.gridTemplateRows = `repeat(${cols - 1}, ${cellSize}px)`;
+            gridElement.style.gridTemplateColumns = `repeat(${rows}, ${cellSize}px)`;
+            gridElement.style.gridTemplateRows = `repeat(${cols}, ${cellSize}px)`;
 
             Array.from(cells).forEach(cell => {
                 cell.style.width = `${cellSize}px`;
