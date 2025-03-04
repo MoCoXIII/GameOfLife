@@ -58,10 +58,26 @@
         .controls {
             width: 20%;
             height: 100%;
-            display: flex;
             flex-direction: column;
-            gap: 10px;
             box-sizing: border-box;
+            display: flex;
+            /* Use flexbox for horizontal alignment */
+            gap: 10px;
+            /* Add spacing between buttons */
+            flex-wrap: wrap;
+            /* Allow wrapping if buttons overflow */
+        }
+
+        .controls button,
+        .controls label {
+            display: inline-block;
+            /* Place buttons and labels inline */
+            margin-right: 10px;
+            /* Add spacing between buttons */
+            padding: 5px 10px;
+            /* Add padding for better appearance */
+            cursor: pointer;
+            /* Show pointer cursor on hover */
         }
 
         .color-picker {
@@ -128,6 +144,13 @@
             </div>
             <button onclick="initGrid()">Reset Grid</button>
             <button onclick="startStop()">Start</button>
+            <button onclick="saveSettings()">Save Settings</button>
+            <button onclick="loadSettings()">Load Settings</button>
+            <button onclick="exportToJson()">Export to JSON</button>
+            <input type="file" id="importJson" accept=".json" onchange="importFromJson(event)" style="display: none;">
+            <label for="importJson">Import from JSON</label>
+            <input type="file" id="importImage" accept="image/*" onchange="importImage(event)" style="display: none;">
+            <label for="importImage">Import Image</label>
             <!-- <button onclick="updateColorCounts()">Count Current Cells</button> -->
             <div id="colorCounts"></div>
         </div>
@@ -457,6 +480,106 @@
                 cell.style.width = `${cellSize}px`;
                 cell.style.height = `${cellSize}px`;
             });
+        }
+
+        function saveSettings() {
+            const settings = {
+                rows: grid.length,
+                cols: grid[0].length,
+                cells: grid.map(row => row.map(cell => ({
+                    alive: cell.alive,
+                    color: cell.color
+                })))
+            };
+            localStorage.setItem('gameOfLifeSettings', JSON.stringify(settings));
+            alert('Settings saved!');
+        }
+
+        function loadSettings() {
+            const savedSettings = localStorage.getItem('gameOfLifeSettings');
+            if (savedSettings) {
+                const settings = JSON.parse(savedSettings);
+                initGrid(settings.rows, settings.cols); // Reinitialize the grid
+                settings.cells.forEach((row, i) => {
+                    row.forEach((cell, j) => {
+                        grid[i][j] = { ...cell }; // Restore cell states
+                    });
+                });
+                updateDisplay();
+                alert('Settings loaded!');
+            } else {
+                alert('No saved settings found.');
+            }
+        }
+
+        function exportToJson() {
+            const settings = {
+                rows: grid.length,
+                cols: grid[0].length,
+                cells: grid.map(row => row.map(cell => ({
+                    alive: cell.alive,
+                    color: cell.color
+                })))
+            };
+            const dataStr = JSON.stringify(settings, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'game_of_life_settings.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            alert('Settings exported!');
+        }
+
+        function importFromJson(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const settings = JSON.parse(e.target.result);
+                    initGrid(settings.rows, settings.cols); // Reinitialize the grid
+                    settings.cells.forEach((row, i) => {
+                        row.forEach((cell, j) => {
+                            grid[i][j] = { ...cell }; // Restore cell states
+                        });
+                    });
+                    updateDisplay();
+                    alert('Settings imported!');
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        function importImage(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = grid[0].length; // Match grid columns
+                        canvas.height = grid.length; // Match grid rows
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height); // Resize image to grid dimensions
+
+                        // Map image pixels to grid cells
+                        for (let i = 0; i < grid.length; i++) {
+                            for (let j = 0; j < grid[0].length; j++) {
+                                const pixelData = ctx.getImageData(j, i, 1, 1).data;
+                                const color = `rgb(${pixelData[0]}, ${pixelData[1]}, ${pixelData[2]})`;
+                                grid[i][j].alive = true;
+                                grid[i][j].color = color;
+                            }
+                        }
+                        updateDisplay();
+                        alert('Image imported and mapped!');
+                    };
+                };
+                reader.readAsDataURL(file);
+            }
         }
 
         window.addEventListener('resize', resize);
