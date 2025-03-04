@@ -135,7 +135,7 @@
                 <button onclick="loadSettings()" style="float: right; width: 50%;">Load Settings</button>
             </div>
             <button onclick="exportToJson()">Export to JSON</button>
-            <div class="control-group" style="display: inline-flex; flex-direction: row; width: 100%;">
+            <div class="control-group" style="display: inline-flex; flex-direction: row; width: 100%; height: 18px;">
                 <input type="file" id="importJson" accept=".json" onchange="importFromJson(event)"
                     style="display: none;">
                 <label for="importJson" style="position: absolute; left: 0; padding-left: 10px;">Import from
@@ -198,11 +198,6 @@
                     cell.addEventListener('mousedown', (event) => handleCellStart(i, j, event));
                     cell.addEventListener('mousemove', (event) => handleCellMove(i, j, event));
                     cell.addEventListener('mouseup', () => handleCellEnd());
-
-                    // Touch events
-                    cell.addEventListener('touchstart', (event) => handleCellStart(i, j, event));
-                    cell.addEventListener('touchmove', (event) => handleCellMove(i, j, event));
-                    cell.addEventListener('touchend', () => handleCellEnd());
 
                     gridElement.appendChild(cell);
                 }
