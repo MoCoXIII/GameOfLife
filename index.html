@@ -234,6 +234,20 @@
                 }
             }
 
+            if ((rows > 100 && cols > 100) || (rows > 200 || cols > 200)) {
+                document.title = "NOFRAME GOL PVP - TOO LARGE";
+                const cells = document.getElementsByClassName('cell');
+                Array.from(cells).forEach(cell => {
+                    cell.style.border = 'none';
+                });
+            } else {
+                document.title = "GameOfLive PVP Edition";
+                const cells = document.getElementsByClassName('cell');
+                Array.from(cells).forEach(cell => {
+                    cell.style.border = '1px solid #333';
+                });
+            }
+
             updateColorCounts();
             resize();
         }
