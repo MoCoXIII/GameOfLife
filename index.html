@@ -142,7 +142,10 @@
                 <label>Step Delay (ms):</label>
                 <input type="number" id="stepDelay" value="100">
             </div>
-            <button onclick="startStop()">Start</button>
+            <div class="control-group" style="display: inline-flex; flex-direction: row; width: 100%; gap: 0px;">
+                <button onclick="startStop()" style="float: left; width: 50%;">Start</button>
+                <button onclick="step()" style="float: right; width: 50%;">Step</button>
+            </div>
             <div class="control-group" style="display: inline-flex; flex-direction: row; width: 100%; gap: 0px;">
                 <button onclick="saveSettings()" style="float: left; width: 50%;">Save Settings</button>
                 <button onclick="loadSettings()" style="float: right; width: 50%;">Load Settings</button>
@@ -184,6 +187,7 @@
         let originalColors = new Set();
         let extinctColors = new Set();
         let extinctionOrder = [];
+        let lastCellHeritage = null;
 
         document.querySelector('.color-picker').addEventListener('input', function (e) {
             selectedColor = e.target.value;
@@ -328,8 +332,8 @@
             }));
 
             for (let color in leftOverColors) {
-                counts[color] = 0;
-                colorCounts[color] = 0;
+                delete counts[color];
+                delete colorCounts[color];
                 extinctionOrder.push(color);
             }
 
@@ -381,6 +385,7 @@
 
                     if (grid[i][j].alive) {
                         newGrid[i][j].alive = liveNeighbors.length === 2 || liveNeighbors.length === 3;
+                        lastCellHeritage = grid[i][j].heritage;
                     } else {
                         if (liveNeighbors.length === 3) {
                             newGrid[i][j].alive = true;
@@ -396,6 +401,8 @@
                                             newGrid[i][j].heritage.set(key, value);
                                         }
                                     });
+                                } else {
+                                    newGrid[i][j].heritage.set(neighbor.color, 1);
                                 }
                             });
                         }
@@ -474,18 +481,8 @@
 
         function gameLoop() {
             if (running) {
-                // let oldColors = JSON.parse(JSON.stringify(colorCounts));
-
                 grid = getNextGeneration();
                 updateDisplay();
-
-                // for (let color in oldColors) {
-                //     console.log(color, oldColors[color], colorCounts[color]);
-                //     if (!colorCounts[color] || colorCounts[color] === 0) {
-                //         extinctionOrder.push(color);
-                //     }
-                // };
-
                 setTimeout(() => gameLoop(), stepDelay);
             } else {
                 document.querySelector('button[onclick="startStop()"]').innerText = 'Start';
@@ -494,7 +491,13 @@
 
         function startStop() {
             stepDelay = parseInt(document.getElementById('stepDelay').value);
-            if (!running) { running = true; trackOriginalColors(); gameLoop(); } else { stopSimulation(); }
+            if (!running) { running = true; extinctionOrder = []; trackOriginalColors(); gameLoop(); } else { stopSimulation(); }
+        }
+
+        function step() {
+            running = false;
+            grid = getNextGeneration();
+            updateDisplay();
         }
 
         function resize() {
@@ -754,45 +757,49 @@
                 for (let j = 0; j < grid[0].length; j++) {
                     if (grid[i][j].alive && grid[i][j].color) {
                         aliveColors.add(grid[i][j].color);
-
-                        // If the color is a mix, analyze its heritage
-                        if (!originalColors.has(grid[i][j].color)) {
-                            grid[i][j].heritage.forEach((value, key) => {
-                                if (colorContributions.has(key)) {
-                                    colorContributions.set(key, colorContributions.get(key) + value);
-                                } else {
-                                    colorContributions.set(key, value);
-                                }
-                            });
-                        }
                     }
                 }
             }
 
-            // Determine the last surviving original color(s)
-            const lastSurvivingColors = Array.from(aliveColors).filter(color => originalColors.has(color));
+            // Determine the top contributors to mixed color winner
+            let sortedContributors = [];
 
-            // Determine the top contributors to mixed colors
-            const sortedContributors = Array.from(colorContributions.entries())
+            // Calculate contributions of each original color using lastCellHeritage
+            lastCellHeritage.forEach((contribution, color) => {
+                if (originalColors.has(color)) {
+                    colorContributions.set(color, (colorContributions.get(color) || 0) + contribution);
+                }
+            });
+
+            // Convert contributions to percentages
+            const totalContribution = Array.from(colorContributions.values()).reduce((a, b) => a + b, 0);
+            colorContributions.forEach((value, key) => {
+                colorContributions.set(key, (value / totalContribution) * 100);
+            });
+
+            // Sort contributors by percentage and select top 3
+            sortedContributors = Array.from(colorContributions.entries())
                 .sort((a, b) => b[1] - a[1])
-                .slice(0, 3); // Top 3 contributors
+                .slice(0, 3);
 
             return {
-                firstExtinct: extinctionOrder[0],
+                firstExtinct: extinctionOrder.find(color => originalColors.has(color)),
                 lastExtinct: extinctionOrder[extinctionOrder.length - 1],
-                lastSurvivingColors,
-                topContributors: sortedContributors
+                topContributors: sortedContributors,
+                boardEmpty: aliveColors.size === 0
             };
         }
 
         function displayAnalysis(analysis) {
             let message = `First color to die out: ${analysis.firstExtinct}\n`;
             message += `Last color to die out: ${analysis.lastExtinct}\n`;
-            if (analysis.lastSurvivingColors.length > 0) {
-                message += `Last surviving original color(s): ${analysis.lastSurvivingColors.join(', ')}\n`;
-            }
-            if (analysis.topContributors.length > 0) {
-                message += `Top contributors to mixed colors:\n`;
+            if (
+                (analysis.boardEmpty)
+                &&
+                !originalColors.has(analysis.lastExtinct)
+            ) {
+                message += `Top contributors to mixed color winner:\n`;
+
                 analysis.topContributors.forEach(([color, contribution]) => {
                     message += `- ${color}: ${contribution.toFixed(2)}%\n`;
                 });
