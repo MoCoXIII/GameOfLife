@@ -102,6 +102,20 @@
             border: 2px solid #000;
             /* Highlight selected item */
         }
+
+        #progressBarContainer {
+            width: 100%;
+            background: #f0f0f0;
+            border-radius: 3px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        #progressBar {
+            height: 20px;
+            background: #007bff;
+            transition: width 0.1s ease;
+        }
     </style>
 </head>
 
@@ -126,9 +140,8 @@
             </div>
             <div class="control-group">
                 <label>Step Delay (ms):</label>
-                <input type="number" id="stepDelay" value="1000">
+                <input type="number" id="stepDelay" value="100">
             </div>
-            <button onclick="initGrid()">Reset Grid</button>
             <button onclick="startStop()">Start</button>
             <div class="control-group" style="display: inline-flex; flex-direction: row; width: 100%; gap: 0px;">
                 <button onclick="saveSettings()" style="float: left; width: 50%;">Save Settings</button>
@@ -144,6 +157,15 @@
                     style="display: none;">
                 <label for="importImage" style="position: absolute; right: 0; padding-right: 10px;">Import Image</label>
             </div>
+            <div class="control-group" style="display: inline-flex; flex-direction: row; width: 100%; height: 18px;">
+                <label for="clearAmount">Cells to Clear:</label>
+                <input type="number" id="clearAmount" value="10" min="1" max="1000">
+                <button onclick="startRandomlyClearingCells()">Randomly Clear Cells</button>
+            </div>
+            <div id="progressBarContainer" style="display: none;">
+                <div id="progressBar" style="width: 0%; height: 20px; background: #007bff;"></div>
+            </div>
+            <button onclick="initGrid()">Reset Grid</button>
             <!-- <button onclick="updateColorCounts()">Count Current Cells</button> -->
             <div id="colorCounts"></div>
         </div>
@@ -175,10 +197,12 @@
             const gridElement = document.getElementById('grid');
             gridElement.innerHTML = '';
 
+            // Update the grid initialization to include heritage data
             grid = Array(rows).fill().map(() =>
                 Array(cols).fill().map(() => ({
                     alive: false,
-                    color: null
+                    color: null,
+                    heritage: new Map() // Tracks contributions of original colors
                 }))
             );
 
@@ -216,6 +240,7 @@
 
             if (deleteMode) {
                 removeCell(i, j); // Erase the cell
+                updateDisplay();
             } else {
                 placeCell(i, j); // Draw on the cell
             }
@@ -226,6 +251,7 @@
                 // event.preventDefault(); // Prevent default touch behavior (e.g., scrolling)
                 if (deleteMode) {
                     removeCell(i, j); // Erase during drag
+                    updateDisplay();
                 } else {
                     placeCell(i, j); // Draw during drag
                 }
@@ -256,7 +282,6 @@
         function removeCell(i, j) {
             grid[i][j].alive = false;
             grid[i][j].color = null;
-            updateDisplay();
         }
 
         function updateDisplay() {
@@ -321,39 +346,63 @@
                 });
             });
 
-            if (colorCountItems.length === 0) {
-                running = false;
-                document.getElementById('colorCounts').style.display = 'none';
-            } else {
-                document.getElementById('colorCounts').style.display = 'block';
-            }
+            // if (colorCountItems.length === 0) {
+            //     running = false;
+            //     document.getElementById('colorCounts').style.display = 'none';
+            // } else {
+            //     document.getElementById('colorCounts').style.display = 'block';
+            // }
         }
 
+        let previousGridState = null;
+
         function getNextGeneration() {
-            const newGrid = grid.map(row => row.map(cell => ({ ...cell })));
+            const newGrid = grid.map(row => row.map(cell => ({ ...cell, heritage: new Map(cell.heritage) })));
 
             for (let i = 0; i < grid.length; i++) {
-                for (let j = 0; j < grid[i].length; j++) {
+                for (let j = 0; j < grid[0].length; j++) {
                     const neighbors = getNeighbors(i, j);
-                    const liveNeighbors = neighbors.filter(n => n.alive).length;
+                    const liveNeighbors = neighbors.filter(n => n.alive);
 
                     if (grid[i][j].alive) {
-                        let survives = liveNeighbors === 2 || liveNeighbors === 3;
-                        if (survives) {
-                            newGrid[i][j].alive = true;
-                        } else {
-                            newGrid[i][j].alive = false;
-                            newGrid[i][j].color = null;
-                        }
+                        newGrid[i][j].alive = liveNeighbors.length === 2 || liveNeighbors.length === 3;
                     } else {
-                        if (liveNeighbors === 3) {
+                        if (liveNeighbors.length === 3) {
                             newGrid[i][j].alive = true;
                             newGrid[i][j].color = calculateNewColor(neighbors);
+
+                            // Update heritage based on neighbors
+                            liveNeighbors.forEach(neighbor => {
+                                if (neighbor.heritage) {
+                                    neighbor.heritage.forEach((value, key) => {
+                                        if (newGrid[i][j].heritage.has(key)) {
+                                            newGrid[i][j].heritage.set(key, newGrid[i][j].heritage.get(key) + value);
+                                        } else {
+                                            newGrid[i][j].heritage.set(key, value);
+                                        }
+                                    });
+                                }
+                            });
                         }
                     }
                 }
             }
+
+            if (JSON.stringify(previousGridState) === JSON.stringify(newGrid)) {
+                stopSimulation();
+                return newGrid;
+            }
+
+            previousGridState = newGrid;
             return newGrid;
+        }
+
+        function stopSimulation() {
+            running = false;
+            document.querySelector('button[onclick="startStop()"]').innerText = running ? 'Stop' : 'Start';
+            let previousGridState = null;
+            const analysis = analyzeFinalState();
+            displayAnalysis(analysis);
         }
 
         function getNeighbors(i, j) {
@@ -373,34 +422,39 @@
         }
 
         function calculateNewColor(neighbors) {
-            const colorFreq = {};
-            const aliveNeighbors = neighbors.filter(n => n.alive && n.color !== '#ffffff'); // Ignore white
+            const colorFreq = new Map();
+            const aliveNeighbors = neighbors.filter(n => n.alive);
 
-            if (aliveNeighbors.length === 0) return '#ffffff'; // Default to white if no valid neighbors
-
-            aliveNeighbors.forEach(n => {
-                colorFreq[n.color] = (colorFreq[n.color] || 0) + 1;
+            // Count the frequency of each color among alive neighbors
+            aliveNeighbors.forEach(neighbor => {
+                if (neighbor.color) {
+                    colorFreq.set(neighbor.color, (colorFreq.get(neighbor.color) || 0) + 1);
+                }
             });
 
-            const maxCount = Math.max(...Object.values(colorFreq));
-            const topColors = Object.keys(colorFreq).filter(c => colorFreq[c] === maxCount);
+            // Find the most common color(s)
+            const maxCount = Math.max(...colorFreq.values());
+            const topColors = Array.from(colorFreq.entries())
+                .filter(([color, count]) => count === maxCount)
+                .map(([color]) => color);
 
-            if (topColors.length === 1) return topColors[0];
+            // If there's a tie, average the colors
+            if (topColors.length > 1) {
+                let r = 0, g = 0, b = 0;
+                topColors.forEach(color => {
+                    const hex = color.replace('#', '');
+                    r += parseInt(hex.substring(0, 2), 16);
+                    g += parseInt(hex.substring(2, 4), 16);
+                    b += parseInt(hex.substring(4, 6), 16);
+                });
+                r = Math.round(r / topColors.length).toString(16).padStart(2, '0');
+                g = Math.round(g / topColors.length).toString(16).padStart(2, '0');
+                b = Math.round(b / topColors.length).toString(16).padStart(2, '0');
+                return `#${r}${g}${b}`;
+            }
 
-            // Average colors
-            let r = 0, g = 0, b = 0;
-            topColors.forEach(color => {
-                const hex = color.replace('#', '');
-                r += parseInt(hex.substring(0, 2), 16);
-                g += parseInt(hex.substring(2, 4), 16);
-                b += parseInt(hex.substring(4, 6), 16);
-            });
-
-            r = Math.round(r / topColors.length).toString(16).padStart(2, '0');
-            g = Math.round(g / topColors.length).toString(16).padStart(2, '0');
-            b = Math.round(b / topColors.length).toString(16).padStart(2, '0');
-
-            return `#${r}${g}${b}`;
+            // Otherwise, return the most common color
+            return topColors[0];
         }
 
         function gameLoop() {
@@ -414,10 +468,8 @@
         }
 
         function startStop() {
-            running = !running;
-            document.querySelector('button[onclick="startStop()"]').innerText = running ? 'Stop' : 'Start';
             stepDelay = parseInt(document.getElementById('stepDelay').value);
-            if (running) gameLoop();
+            if (!running) {running = true; gameLoop();} else {stopSimulation();}
         }
 
         function resize() {
@@ -441,7 +493,7 @@
                 gridElement.style.position = 'fixed'; // Fix grid to the right
                 gridElement.style.left = controlsElement.clientWidth + 'px';
                 gridElement.style.top = '0';
-                colorCountsElement.style.maxHeight = 'none'; // Reset max-height
+                colorCountsElement.style.maxHeight = '50%'; // Reset max-height
             } else {
                 // Portrait mode: Grid below controls
                 gridElement.style.width = '100%';
@@ -586,6 +638,165 @@
                 };
                 reader.readAsDataURL(file);
             }
+        }
+
+        let isClearing = false; // Track if the clearing process is active
+
+        function startRandomlyClearingCells() {
+            if (isClearing) return; // Prevent multiple clearing processes
+            isClearing = true;
+
+            const clearAmount = parseInt(document.getElementById('clearAmount').value);
+            const totalCells = grid.length * grid[0].length;
+
+            // Ensure the clear amount is valid
+            if (clearAmount < 1 || clearAmount > totalCells) {
+                alert(`Please enter a number between 1 and ${totalCells}.`);
+                isClearing = false;
+                return;
+            }
+
+            // Show the progress bar
+            const progressBarContainer = document.getElementById('progressBarContainer');
+            const progressBar = document.getElementById('progressBar');
+            progressBarContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+
+            // Create a list of all cell coordinates
+            const cellCoordinates = [];
+            for (let i = 0; i < grid.length; i++) {
+                for (let j = 0; j < grid[0].length; j++) {
+                    cellCoordinates.push({ i, j });
+                }
+            }
+
+            // Shuffle the cell coordinates randomly
+            for (let k = cellCoordinates.length - 1; k > 0; k--) {
+                const l = Math.floor(Math.random() * (k + 1));
+                [cellCoordinates[k], cellCoordinates[l]] = [cellCoordinates[l], cellCoordinates[k]];
+            }
+
+            // Clear cells in chunks to avoid blocking the UI
+            let clearedCells = 0;
+            const chunkSize = 100; // Number of cells to clear per frame
+
+            function clearChunk() {
+                for (let m = 0; m < chunkSize; m++) {
+                    if (clearedCells >= clearAmount) {
+                        // Clearing complete
+                        progressBarContainer.style.display = 'none';
+                        isClearing = false;
+                        updateDisplay();
+                        // alert(`${clearAmount} cells cleared randomly!`);
+                        return;
+                    }
+
+                    const { i, j } = cellCoordinates[clearedCells];
+                    removeCell(i, j);
+                    clearedCells++;
+
+                    // Update progress bar
+                    const progress = (clearedCells / clearAmount) * 100;
+                    progressBar.style.width = `${progress}%`;
+                }
+
+                // Continue clearing in the next frame
+                requestAnimationFrame(clearChunk);
+                updateDisplay();
+            }
+
+            // Start the clearing process
+            clearChunk();
+        }
+
+        let originalColors = new Set();
+
+        function trackOriginalColors() {
+            originalColors.clear();
+            for (let i = 0; i < grid.length; i++) {
+                for (let j = 0; j < grid[0].length; j++) {
+                    if (grid[i][j].alive && grid[i][j].color) {
+                        originalColors.add(grid[i][j].color);
+                    }
+                }
+            }
+        }
+
+        let extinctColors = new Set();
+        let extinctionOrder = [];
+
+        function checkColorExtinction() {
+            const aliveColors = new Set();
+            for (let i = 0; i < grid.length; i++) {
+                for (let j = 0; j < grid[0].length; j++) {
+                    if (grid[i][j].alive && grid[i][j].color) {
+                        aliveColors.add(grid[i][j].color);
+                    }
+                }
+            }
+
+            // Check which original colors have died out
+            originalColors.forEach(color => {
+                if (!aliveColors.has(color) && !extinctColors.has(color)) {
+                    extinctColors.add(color);
+                    extinctionOrder.push(color);
+                }
+            });
+        }
+
+        function analyzeFinalState() {
+            const aliveColors = new Set();
+            const colorContributions = new Map();
+
+            // Count contributions of each original color to the final state
+            for (let i = 0; i < grid.length; i++) {
+                for (let j = 0; j < grid[0].length; j++) {
+                    if (grid[i][j].alive && grid[i][j].color) {
+                        aliveColors.add(grid[i][j].color);
+
+                        // If the color is a mix, analyze its heritage
+                        if (!originalColors.has(grid[i][j].color)) {
+                            grid[i][j].heritage.forEach((value, key) => {
+                                if (colorContributions.has(key)) {
+                                    colorContributions.set(key, colorContributions.get(key) + value);
+                                } else {
+                                    colorContributions.set(key, value);
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Determine the last surviving original color(s)
+            const lastSurvivingColors = Array.from(aliveColors).filter(color => originalColors.has(color));
+
+            // Determine the top contributors to mixed colors
+            const sortedContributors = Array.from(colorContributions.entries())
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 3); // Top 3 contributors
+
+            return {
+                firstExtinct: extinctionOrder[0],
+                lastExtinct: extinctionOrder[extinctionOrder.length - 1],
+                lastSurvivingColors,
+                topContributors: sortedContributors
+            };
+        }
+
+        function displayAnalysis(analysis) {
+            let message = `First color to die out: ${analysis.firstExtinct}\n`;
+            message += `Last color to die out: ${analysis.lastExtinct}\n`;
+            if (analysis.lastSurvivingColors.length > 0) {
+                message += `Last surviving original color(s): ${analysis.lastSurvivingColors.join(', ')}\n`;
+            }
+            if (analysis.topContributors.length > 0) {
+                message += `Top contributors to mixed colors:\n`;
+                analysis.topContributors.forEach(([color, contribution]) => {
+                    message += `- ${color}: ${contribution.toFixed(2)}%\n`;
+                });
+            }
+            alert(message);
         }
 
         window.addEventListener('resize', resize);
