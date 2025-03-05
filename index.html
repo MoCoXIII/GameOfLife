@@ -181,6 +181,9 @@
         let stepDelay = 100;
         let isMouseDown = false;
         let deleteMode = false;
+        let originalColors = new Set();
+        let extinctColors = new Set();
+        let extinctionOrder = [];
 
         document.querySelector('.color-picker').addEventListener('input', function (e) {
             selectedColor = e.target.value;
@@ -307,8 +310,14 @@
 
         function updateColorCounts() {
             const counts = {};
+            let leftOverColors = JSON.parse(JSON.stringify(colorCounts));
+
             grid.forEach(row => row.forEach(cell => {
                 if (cell.alive && cell.color) {
+                    if (cell.color in leftOverColors) {
+                        delete leftOverColors[cell.color];
+                    }
+
                     if (cell.color === '#ffffff') {
                         cell.color = null;
                     } else {
@@ -317,6 +326,12 @@
                     }
                 }
             }));
+
+            for (let color in leftOverColors) {
+                counts[color] = 0;
+                colorCounts[color] = 0;
+                extinctionOrder.push(color);
+            }
 
             // Convert counts object to an array and sort by count (descending)
             const sortedCounts = Object.entries(counts).sort((a, b) => b[1] - a[1]);
@@ -459,8 +474,18 @@
 
         function gameLoop() {
             if (running) {
+                // let oldColors = JSON.parse(JSON.stringify(colorCounts));
+
                 grid = getNextGeneration();
                 updateDisplay();
+
+                // for (let color in oldColors) {
+                //     console.log(color, oldColors[color], colorCounts[color]);
+                //     if (!colorCounts[color] || colorCounts[color] === 0) {
+                //         extinctionOrder.push(color);
+                //     }
+                // };
+
                 setTimeout(() => gameLoop(), stepDelay);
             } else {
                 document.querySelector('button[onclick="startStop()"]').innerText = 'Start';
@@ -469,7 +494,7 @@
 
         function startStop() {
             stepDelay = parseInt(document.getElementById('stepDelay').value);
-            if (!running) {running = true; gameLoop();} else {stopSimulation();}
+            if (!running) { running = true; trackOriginalColors(); gameLoop(); } else { stopSimulation(); }
         }
 
         function resize() {
@@ -709,8 +734,6 @@
             clearChunk();
         }
 
-        let originalColors = new Set();
-
         function trackOriginalColors() {
             originalColors.clear();
             for (let i = 0; i < grid.length; i++) {
@@ -720,28 +743,6 @@
                     }
                 }
             }
-        }
-
-        let extinctColors = new Set();
-        let extinctionOrder = [];
-
-        function checkColorExtinction() {
-            const aliveColors = new Set();
-            for (let i = 0; i < grid.length; i++) {
-                for (let j = 0; j < grid[0].length; j++) {
-                    if (grid[i][j].alive && grid[i][j].color) {
-                        aliveColors.add(grid[i][j].color);
-                    }
-                }
-            }
-
-            // Check which original colors have died out
-            originalColors.forEach(color => {
-                if (!aliveColors.has(color) && !extinctColors.has(color)) {
-                    extinctColors.add(color);
-                    extinctionOrder.push(color);
-                }
-            });
         }
 
         function analyzeFinalState() {
